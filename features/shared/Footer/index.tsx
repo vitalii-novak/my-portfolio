@@ -243,8 +243,17 @@ export function Footer() {
           </div>
         </div>
 
-        {/* ── Tagline ──────────────────────────────────────────────────── */}
-        <div style={{ marginTop: "14px", textAlign: "right" }}>
+        {/* ── Email + tagline ──────────────────────────────────────────── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", marginTop: "14px" }}>
+          <a
+            href={`mailto:${EMAIL}`}
+            className="font-mono text-muted"
+            style={{ fontSize: "11.5px", textDecoration: "none", letterSpacing: ".02em", transition: "color 200ms ease" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-2)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-3)"; }}
+          >
+            {EMAIL}
+          </a>
           <span className="font-mono text-muted" style={{ fontSize: "11.5px", letterSpacing: ".04em" }}>
             Built with Next.js & care.
           </span>

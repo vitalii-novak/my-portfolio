@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { useState, useRef } from "react";
+import { ArrowUpRight, Check } from "lucide-react";
 import { useReveal } from "@/features/shared/hooks/useReveal";
 import { site } from "@/config/site";
+
+const EMAIL = site.email;
 
 const SOCIALS = [
   { label: "GitHub",   href: site.socials.github },
@@ -29,7 +31,16 @@ const NEXT_STEPS = [
 
 export function ContactInfo() {
   const ref = useRef<HTMLElement>(null);
+  const [copied, setCopied] = useState(false);
   useReveal(ref);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(EMAIL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }
 
   return (
     <aside
@@ -51,6 +62,24 @@ export function ContactInfo() {
           Currently open to freelance and contract work. Earliest start: July
           2026.
         </p>
+      </div>
+
+      {/* Direct email */}
+      <div data-reveal>
+        <InfoLabel>Direct email</InfoLabel>
+        <button
+          onClick={handleCopy}
+          title={copied ? "Copied!" : "Click to copy email"}
+          className="bg-elevated"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", width: "100%", borderRadius: "14px", cursor: "pointer", textAlign: "left", padding: "14px 16px", border: "1.5px solid var(--border)", transition: "border-color .2s ease, background .2s ease" }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--text-3)"; e.currentTarget.style.background = "var(--panel)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-elev)"; }}
+        >
+          <span className="font-mono text-primary" style={{ fontSize: "13.5px" }}>{EMAIL}</span>
+          <span className="font-mono" style={{ fontSize: "11.5px", flexShrink: 0, letterSpacing: ".04em", transition: "color 200ms ease", color: copied ? "#22c55e" : "var(--text-3)" }}>
+            {copied ? <><Check size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: "3px" }} />Copied</> : "Copy"}
+          </span>
+        </button>
       </div>
 
       {/* Socials */}
