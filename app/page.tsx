@@ -1,26 +1,32 @@
-import Image from "next/image";
+import { Header, Footer } from "@/features/shared";
+import { Hero } from "@/features/home/Hero";
+import { Stats } from "@/features/home/Stats";
+// import { FeaturedProjects } from "@/features/home/FeaturedProjects";
+// import { Principles } from "@/features/home/Principles";
+import { Skills } from "@/features/home/Skills";
+import { Timeline } from "@/features/home/Timeline";
+import { Process } from "@/features/home/Process";
+import { Testimonials } from "@/features/home/Testimonials";
+// import { LatestPosts } from "@/features/home/LatestPosts";
+// import { ContactCTA } from "@/features/home/ContactCTA";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center gap-12 py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            THIS IS MY PORTFOLIO TEST PAGE, I HOPE YOU LIKE IT!
-            <br />
-            <br />
-            :)
-          </h1>
-        </div>
+    <>
+      <Header />
+      <main>
+        <Hero />
+        <Stats />
+        {/* <FeaturedProjects /> */}
+        {/* <Principles /> */}
+        <Skills />
+        <Timeline />
+        <Process />
+        <Testimonials />
+        {/* <LatestPosts /> */}
+        {/* <ContactCTA /> */}
       </main>
-    </div>
+      <Footer />
+    </>
   );
 }
