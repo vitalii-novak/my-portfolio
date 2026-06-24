@@ -19,22 +19,34 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Scripts: self + Next.js inline scripts required for hydration
-      "script-src 'self' 'unsafe-inline'",
+
+      // Scripts: self + Next.js inline hydration + PostHog SDK (US CDN) + Vercel analytics
+      "script-src 'self' 'unsafe-inline' https://us-assets.i.posthog.com https://va.vercel-scripts.com https://cdn.vercel-insights.com",
+
       // Styles: self + inline (Tailwind/Next.js) + Google Fonts
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+
       // Fonts: self + Google Fonts CDN
       "font-src 'self' https://fonts.gstatic.com data:",
+
       // Images: self + data URIs (SVG/favicon data URLs)
       "img-src 'self' data:",
-      // Fetch/XHR: self only (our own API routes)
-      "connect-src 'self'",
+
+      // Fetch/XHR: self + PostHog (analytics) + Vercel (analytics & speed-insights)
+      "connect-src 'self' https://*.i.posthog.com https://*.posthog.com https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+
+      // PostHog loads its bundle from their CDN
+      "worker-src blob:",
+
       // Frames: none
       "frame-src 'none'",
+
       // Old plugins (Flash, etc.): none
       "object-src 'none'",
+
       // Restrict <base> tag to self
       "base-uri 'self'",
+
       // Form submissions only to self
       "form-action 'self'",
     ].join("; "),

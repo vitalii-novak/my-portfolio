@@ -3,6 +3,7 @@ import { Space_Grotesk, Manrope, JetBrains_Mono } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { ThemeProvider } from "@/features/shared";
+import { PostHogProvider } from "@/features/shared/PostHogProvider";
 import { site } from "@/config/site";
 import "./globals.css";
 
@@ -118,7 +119,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className={`${fontVariables} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider>{children}</ThemeProvider>
+        </PostHogProvider>
       </body>
 
       {/* Vercel Analytics — tracks page views and custom events */}
