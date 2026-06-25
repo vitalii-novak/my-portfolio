@@ -13,6 +13,8 @@
     "@react-email/render": "^2.0.9",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "embla-carousel-autoplay": "^8.6.0",
+    "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.21.0",
     "next": "16.1.6",
     "posthog-js": "^1.393.4",

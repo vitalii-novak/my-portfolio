@@ -319,6 +319,11 @@ textarea::placeholder {
   100% { transform: translateX(520%) skewX(-18deg); opacity: 0; }
 }
 
+/* ── Testimonials: hide quote glyph on small screens to prevent text overlap ── */
+@media (max-width: 640px) {
+  .testimonial-quote-glyph { display: none; }
+}
+
 /* ── Contact: pass pointer events through ALL structural elements to symbols ── */
 /*    Universal selector disables every descendant; specific interactive tags  */
 /*    are re-enabled with higher specificity (0-1-1 > 0-1-0).                 */

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useReveal } from "@/features/shared/hooks/useReveal";
 
@@ -39,57 +41,104 @@ const TESTIMONIALS = [
   },
 ] as const;
 
-const TOTAL = TESTIMONIALS.length;
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function Testimonials() {
-  const rootRef = useRef<HTMLElement>(null);
+  const rootRef   = useRef<HTMLElement>(null);
+  const cardRef   = useRef<HTMLDivElement>(null);
+  const orb1Ref   = useRef<HTMLDivElement>(null);
+  const orb2Ref   = useRef<HTMLDivElement>(null);
+  const spotRef   = useRef<HTMLDivElement>(null);
+  // Keep active colors accessible inside event listeners without re-binding
+  const colorRef  = useRef<{ from: string; to: string }>({ from: TESTIMONIALS[0].from, to: TESTIMONIALS[0].to });
   useReveal(rootRef);
 
-  const [idx, setIdx] = useState(0);
-  const [fading, setFading] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" }, [
+    Autoplay({ delay: 5000, stopOnInteraction: true, stopOnMouseEnter: true }),
+  ]);
 
-  const goTo = useCallback(
-    (next: number) => {
-      if (fading) return;
-      setFading(true);
-      timerRef.current = setTimeout(() => {
-        setIdx(next);
-        setFading(false);
-      }, 260);
-    },
-    [fading],
-  );
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const prev = useCallback(() => goTo((idx - 1 + TOTAL) % TOTAL), [idx, goTo]);
-  const next = useCallback(() => goTo((idx + 1) % TOTAL), [idx, goTo]);
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    const idx = emblaApi.selectedScrollSnap();
+    setSelectedIndex(idx);
+    colorRef.current = { from: TESTIMONIALS[idx].from, to: TESTIMONIALS[idx].to };
+  }, [emblaApi]);
 
   useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
+    return () => { emblaApi.off("select", onSelect); emblaApi.off("reInit", onSelect); };
+  }, [emblaApi, onSelect]);
+
+  // Keyboard navigation
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowLeft") prev();
-      if (e.key === "ArrowRight") next();
+      if (e.key === "ArrowLeft")  emblaApi?.scrollPrev();
+      if (e.key === "ArrowRight") emblaApi?.scrollNext();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [prev, next]);
+  }, [emblaApi]);
 
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
+  // ── Interactive background: cursor spotlight + orb parallax ────────────────
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
 
-  const activeTestimonial = TESTIMONIALS[idx];
+    function onMove(e: MouseEvent) {
+      const rect = card!.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Out of card bounds
+      if (x < 0 || x > rect.width || y < 0 || y > rect.height) {
+        if (spotRef.current) spotRef.current.style.opacity = "0";
+        return;
+      }
+
+      // Normalised [-1, 1] for parallax
+      const nx = (x / rect.width  - 0.5) * 2;
+      const ny = (y / rect.height - 0.5) * 2;
+
+      // Cursor spotlight — uses active testimonial colour
+      if (spotRef.current) {
+        spotRef.current.style.opacity = "1";
+        spotRef.current.style.backgroundImage =
+          `radial-gradient(520px circle at ${x}px ${y}px, ${colorRef.current.from}16 0%, transparent 65%)`;
+      }
+
+      // Orb parallax — subtle depth effect
+      if (orb1Ref.current)
+        orb1Ref.current.style.transform = `translate(${nx * -28}px, ${ny * -20}px)`;
+      if (orb2Ref.current)
+        orb2Ref.current.style.transform = `translate(${nx * 22}px, ${ny * 16}px)`;
+    }
+
+    function onLeave() {
+      if (spotRef.current)  spotRef.current.style.opacity = "0";
+      if (orb1Ref.current)  orb1Ref.current.style.transform  = "translate(0,0)";
+      if (orb2Ref.current)  orb2Ref.current.style.transform  = "translate(0,0)";
+    }
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    card.addEventListener("mouseleave", onLeave);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      card.removeEventListener("mouseleave", onLeave);
+    };
+  }, []); // refs handle updates — no re-binding needed
+
+  const activeTestimonial = TESTIMONIALS[selectedIndex];
 
   return (
     <section
       ref={rootRef}
       style={{ maxWidth: "1120px", margin: "0 auto", padding: "clamp(40px, 6vw, 72px) 24px clamp(80px, 12vw, 140px)" }}
     >
-      {/* Section label */}
       <p
         data-reveal
         className="font-mono text-muted"
@@ -98,167 +147,207 @@ export function Testimonials() {
         / WHAT CLIENTS SAY
       </p>
 
-      {/* Card */}
+      {/* ── Outer card ── */}
       <div
+        ref={cardRef}
         data-reveal
         className="border-border-default bg-elevated"
-        style={{ position: "relative", border: "1px solid var(--border)", borderRadius: "24px", overflow: "hidden", padding: "clamp(28px, 5vw, 56px)" }}
+        style={{ position: "relative", border: "1px solid var(--border)", borderRadius: "24px", overflow: "hidden" }}
       >
-        {/* Color accent bar — changes with active author */}
+        {/* ── BACKGROUND LAYER ─────────────────────────────────────────────── */}
+
+        {/* Accent top bar — colour-shifts with active slide */}
         <div
           aria-hidden
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: "3px",
+            position: "absolute", top: 0, left: 0, right: 0, height: "3px",
             borderRadius: "24px 24px 0 0",
-            transition: "background 550ms ease",
+            transition: "background 600ms ease",
             background: `linear-gradient(to right, ${activeTestimonial.from}, ${activeTestimonial.to})`,
           }}
         />
 
-        {/* ── Decorative background shapes ───────────────────────────────
-             All use activeTestimonial.from for colour so they shift smoothly with the
-             active author (transition on border/background props).
-             floatY animation is GPU-composited (transform only).      */}
-        <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-          {/* Dot grid — top-right corner, CSS-only */}
-          <div style={{
-            position: "absolute", top: "5%", right: "2%",
-            width: "160px", height: "160px",
-            backgroundImage: "radial-gradient(circle, #f9731628 1.5px, transparent 1.5px)",
-            backgroundSize: "20px 20px",
-            maskImage: "radial-gradient(ellipse at 90% 10%, black 20%, transparent 65%)",
-            WebkitMaskImage: "radial-gradient(ellipse at 90% 10%, black 20%, transparent 65%)",
-          }} />
-
-          {/* Large ring — top-right, slow float */}
-          <div style={{ position: "absolute", borderRadius: "50%", willChange: "transform", animation: "floatY 10s ease-in-out infinite", top: "-55px", right: "-55px", width: "200px", height: "200px", border: "1.5px solid #f973161c" }} />
-
-          {/* Medium ring — slightly inset, different phase */}
-          <div style={{ position: "absolute", borderRadius: "50%", willChange: "transform", animation: "floatY 7.5s ease-in-out 1.8s infinite", top: "8px", right: "80px", width: "96px", height: "96px", border: "1.5px solid #f9731614" }} />
-
-          {/* Small filled circle — middle-right */}
-          <div style={{ position: "absolute", borderRadius: "50%", willChange: "transform", animation: "floatY 6.5s ease-in-out 0.6s infinite", top: "50%", right: "4%", width: "8px", height: "8px", background: "#f9731630" }} />
-
-          {/* Diamond — bottom-left */}
-          <div style={{ position: "absolute", borderRadius: "2px", willChange: "transform", animation: "floatY 8.5s ease-in-out 2.4s infinite", bottom: "22%", left: "3%", width: "10px", height: "10px", background: "#f9731626", transform: "rotate(45deg)" }} />
-
-          {/* Tiny dot — bottom-center */}
-          <div style={{ position: "absolute", borderRadius: "50%", willChange: "transform", animation: "floatY 9s ease-in-out 1.1s infinite", bottom: "30%", left: "35%", width: "5px", height: "5px", background: "#f9731620" }} />
-
-          {/* Ambient glow — top-left corner */}
-          <div style={{ position: "absolute", borderRadius: "50%", top: "-80px", left: "-80px", width: "300px", height: "300px", background: "radial-gradient(circle, #f973160a 0%, transparent 70%)" }} />
-        </div>
-
-        {/* Decorative quote glyph */}
+        {/* Orb 1 — large, top-right, uses `from` colour */}
         <div
+          ref={orb1Ref}
           aria-hidden
-          className="font-display text-border-default"
           style={{
             position: "absolute",
-            top: "18px",
-            right: "clamp(24px, 4vw, 44px)",
-            fontWeight: 700,
+            top: "-30%", right: "-10%",
+            width: "55%", height: "130%",
+            borderRadius: "50%",
+            filter: "blur(72px)",
             pointerEvents: "none",
-            userSelect: "none",
+            transition: "background 600ms ease, transform 1.4s cubic-bezier(.2,.8,.2,1)",
+            willChange: "transform",
+            animation: "orbBreath 9s ease-in-out infinite",
+            background: `radial-gradient(circle, ${activeTestimonial.from}24 0%, ${activeTestimonial.from}08 50%, transparent 70%)`,
+          }}
+        />
+
+        {/* Orb 2 — medium, bottom-left, uses `to` colour */}
+        <div
+          ref={orb2Ref}
+          aria-hidden
+          style={{
+            position: "absolute",
+            bottom: "-20%", left: "-8%",
+            width: "45%", height: "110%",
+            borderRadius: "50%",
+            filter: "blur(64px)",
+            pointerEvents: "none",
+            transition: "background 600ms ease, transform 1.4s cubic-bezier(.2,.8,.2,1)",
+            willChange: "transform",
+            animation: "orbBreath 12s ease-in-out 2s infinite",
+            background: `radial-gradient(circle, ${activeTestimonial.to}20 0%, ${activeTestimonial.to}06 50%, transparent 70%)`,
+          }}
+        />
+
+        {/* Cursor spotlight — follows mouse, colour-reactive */}
+        <div
+          ref={spotRef}
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0,
+            pointerEvents: "none",
+            opacity: 0,
+            transition: "opacity .4s ease",
+          }}
+        />
+
+        {/* Subtle noise grain overlay for depth */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0,
+            pointerEvents: "none",
+            opacity: 0.025,
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+            backgroundSize: "200px 200px",
+          }}
+        />
+
+        {/* Thin animated rings — use active colour */}
+        <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+          <div style={{
+            position: "absolute", top: "-60px", right: "-60px",
+            width: "220px", height: "220px", borderRadius: "50%",
+            transition: "border-color 600ms ease",
+            border: `1px solid ${activeTestimonial.from}20`,
+            animation: "floatY 11s ease-in-out infinite",
+            willChange: "transform",
+          }} />
+          <div style={{
+            position: "absolute", top: "0px", right: "60px",
+            width: "110px", height: "110px", borderRadius: "50%",
+            transition: "border-color 600ms ease",
+            border: `1px solid ${activeTestimonial.to}18`,
+            animation: "floatY 8s ease-in-out 1.5s infinite",
+            willChange: "transform",
+          }} />
+          <div style={{
+            position: "absolute", bottom: "18%", left: "2%",
+            width: "12px", height: "12px", borderRadius: "3px",
+            transition: "background 600ms ease",
+            background: `${activeTestimonial.from}28`,
+            transform: "rotate(45deg)",
+            animation: "floatY 7s ease-in-out 3s infinite",
+            willChange: "transform",
+          }} />
+          <div style={{
+            position: "absolute", bottom: "32%", left: "36%",
+            width: "6px", height: "6px", borderRadius: "50%",
+            transition: "background 600ms ease",
+            background: `${activeTestimonial.to}22`,
+            animation: "floatY 10s ease-in-out 0.8s infinite",
+            willChange: "transform",
+          }} />
+        </div>
+
+        {/* Decorative quote glyph — hidden on small screens to avoid text overlap */}
+        <div
+          aria-hidden
+          className="font-display text-border-default testimonial-quote-glyph"
+          style={{
+            position: "absolute", top: "18px", right: "clamp(24px, 4vw, 44px)",
+            fontWeight: 700, pointerEvents: "none", userSelect: "none",
             letterSpacing: "-0.04em",
-            fontSize: "clamp(72px, 14vw, 110px)",
-            lineHeight: 0.8,
+            fontSize: "clamp(72px, 14vw, 110px)", lineHeight: 0.8,
           }}
         >
           &ldquo;
         </div>
 
-        {/* Fading content */}
-        <div style={{ transition: "opacity .28s ease", opacity: fading ? 0 : 1 }}>
-          {/* Quote */}
-          <p
-            className="font-display"
-            style={{
-              fontWeight: 500,
-              letterSpacing: "-0.02em",
-              maxWidth: "70ch",
-              fontSize: "clamp(1.15rem, 2.8vw, 1.82rem)",
-              lineHeight: 1.38,
-              textWrap: "balance" as never,
-              marginBottom: "clamp(22px, 3.5vw, 34px)",
-            }}
-          >
-            {activeTestimonial.quote}
-          </p>
+        {/* ── Embla carousel ── */}
+        <div ref={emblaRef} style={{ overflow: "hidden", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", userSelect: "none", touchAction: "pan-y pinch-zoom" }}>
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} style={{ flex: "0 0 100%", minWidth: 0, padding: "clamp(28px, 5vw, 56px)" }}>
+                <p
+                  className="font-display"
+                  style={{
+                    fontWeight: 500, letterSpacing: "-0.02em", maxWidth: "70ch",
+                    fontSize: "clamp(1.15rem, 2.8vw, 1.82rem)",
+                    lineHeight: 1.38, textWrap: "balance" as never,
+                    marginBottom: "clamp(22px, 3.5vw, 34px)",
+                  }}
+                >
+                  {t.quote}
+                </p>
 
-          {/* Author */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {/* Gradient avatar */}
-            <div
-              className="font-mono text-white"
-              style={{
-                width: "44px",
-                height: "44px",
-                borderRadius: "50%",
-                display: "grid",
-                placeItems: "center",
-                fontSize: "13px",
-                fontWeight: 700,
-                flexShrink: 0,
-                transition: "background 550ms ease, box-shadow 550ms ease",
-                background: `linear-gradient(135deg, ${activeTestimonial.from}, ${activeTestimonial.to})`,
-                boxShadow: `0 0 0 3px ${activeTestimonial.ring}`,
-              }}
-            >
-              {activeTestimonial.initials}
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 600, fontSize: "14.5px", lineHeight: 1.3 }}>
-                {activeTestimonial.name}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div
+                    className="font-mono text-white"
+                    style={{
+                      width: "44px", height: "44px", borderRadius: "50%",
+                      display: "grid", placeItems: "center",
+                      fontSize: "13px", fontWeight: 700, flexShrink: 0,
+                      background: `linear-gradient(135deg, ${t.from}, ${t.to})`,
+                      boxShadow: `0 0 0 3px ${t.ring}`,
+                    }}
+                  >
+                    {t.initials}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "14.5px", lineHeight: 1.3 }}>{t.name}</div>
+                    <div className="text-muted" style={{ fontSize: "13px", marginTop: "2px" }}>{t.role}</div>
+                  </div>
+                </div>
               </div>
-              <div className="text-muted" style={{ fontSize: "13px", marginTop: "2px" }}>
-                {activeTestimonial.role}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* Controls */}
+        {/* ── Controls ── */}
         <div
-          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginTop: "clamp(22px, 4vw, 38px)" }}
+          style={{
+            position: "relative", zIndex: 1,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            flexWrap: "wrap", gap: "12px",
+            padding: "0 clamp(28px, 5vw, 56px) clamp(28px, 5vw, 56px)",
+          }}
         >
-          {/* Dot indicators */}
           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-            {TESTIMONIALS.map((testimonial, testimonialIndex) => (
+            {TESTIMONIALS.map((t, i) => (
               <button
-                key={testimonialIndex}
-                onClick={() => goTo(testimonialIndex)}
-                aria-label={`Testimonial ${testimonialIndex + 1}`}
+                key={i}
+                onClick={() => emblaApi?.scrollTo(i)}
+                aria-label={`Testimonial ${i + 1}`}
                 style={{
-                  height: "6px",
-                  borderRadius: "3px",
-                  border: 0,
-                  padding: 0,
-                  cursor: "pointer",
-                  width: testimonialIndex === idx ? "22px" : "6px",
-                  background:
-                    testimonialIndex === idx
-                      ? `linear-gradient(to right, ${testimonial.from}, ${testimonial.to})`
-                      : "var(--border)",
+                  height: "6px", borderRadius: "3px", border: 0, padding: 0, cursor: "pointer",
+                  width: i === selectedIndex ? "22px" : "6px",
+                  background: i === selectedIndex
+                    ? `linear-gradient(to right, ${t.from}, ${t.to})`
+                    : "var(--border)",
                   transition: "width .3s cubic-bezier(.2,.8,.2,1), background .55s ease",
                 }}
               />
             ))}
           </div>
 
-          {/* Prev / Next */}
           <div style={{ display: "flex", gap: "8px" }}>
-            <NavBtn onClick={prev} title="Previous">
-              <ArrowLeft size={16} />
-            </NavBtn>
-            <NavBtn onClick={next} title="Next">
-              <ArrowRight size={16} />
-            </NavBtn>
+            <NavBtn onClick={() => emblaApi?.scrollPrev()} title="Previous"><ArrowLeft size={16} /></NavBtn>
+            <NavBtn onClick={() => emblaApi?.scrollNext()} title="Next"><ArrowRight size={16} /></NavBtn>
           </div>
         </div>
       </div>
@@ -266,31 +355,15 @@ export function Testimonials() {
   );
 }
 
-// ── NavBtn ────────────────────────────────────────────────────────────────────
-
-function NavBtn({
-  onClick,
-  title,
-  children,
-}: {
-  onClick: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
+function NavBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       title={title}
       className="border-border-default text-primary"
       style={{ display: "grid", placeItems: "center", width: "40px", height: "40px", borderRadius: "10px", border: "1px solid var(--border)", background: "transparent", cursor: "pointer", transition: "border-color 200ms ease, background 200ms ease" }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "var(--text-3)";
-        e.currentTarget.style.background = "var(--panel)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "var(--border)";
-        e.currentTarget.style.background = "transparent";
-      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--text-3)"; e.currentTarget.style.background = "var(--panel)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "transparent"; }}
     >
       {children}
     </button>
